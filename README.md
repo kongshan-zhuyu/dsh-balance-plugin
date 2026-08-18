@@ -66,25 +66,17 @@ Cordis 中会注册两个条目：
 - 已安装 `dsh` CLI。
 - 已安装 `pnpm`；缺失时可执行 `npm install -g pnpm`。
 
-从仓库根目录执行：
+在项目根目录执行一条跨平台安装命令，无需区分 Windows、macOS 或 Linux：
 
 ```bash
-dsh plugin --profile web add ./packages/dsh-bundle-balance
-dsh plugin --profile web add ./packages/dsh-client-balance ./packages/dsh-host-balance
+node ./scripts/install.mjs
 ```
 
-安装后重启：
+安装脚本会一次调用 `dsh plugin add` 并传入三个本地包路径：Bundle 负责应用 `cordis.patch.yml`，Client 负责界面，Host 负责余额查询。安装完成后重启 Web 服务：
 
 ```bash
 dsh web
 ```
-
-macOS 也可以执行：
-
-```bash
-bash scripts/install-macos.sh
-```
-
 Bundle 会通过 `packages/dsh-bundle-balance/cordis.patch.yml` 插入：
 
 ```yaml
