@@ -13,14 +13,23 @@ DSH 余额查询插件（`@deepseek-ai/dsh-bundle-balance`），用于查询模�
 - 仅接受受限的请求头集合，危险头与 CR/LF 注入被拒绝。
 - JSON 字段映射仅限 `$.data.balance` 之类的简单属性路径；不使用 eval、JSONPath 过滤器或模板插值。
 
-## 在 macOS 上安装
+## 安装
 
-1. 运行 `bash scripts/install-macos.sh`，内部使用官方 profile 命令：
-   `dsh plugin --profile web add <local-package-path>`。
-2. 重启 `dsh web`。
+前置条件：`dsh` CLI 已安装，且 `pnpm` 可用（`dsh plugin` 依赖 pnpm，缺失时先执行 `npm install -g pnpm`）。
 
-安装目标是 [dsh-bundle-balance](./packages/dsh-bundle-balance)，
-它暴露了所需的 `dsh.bundle.patch` 清单，无需手工合并 profile patch。
+先装 bundle 层，再装它的两个组件包（`dsh plugin` 只把链接的目录装为顶层依赖，不会自动带入其 `file:` 依赖，必须显式添加）：
+
+```bash
+dsh plugin --profile web add <本仓库>/packages/dsh-bundle-balance
+dsh plugin --profile web add <本仓库>/packages/dsh-client-balance <本仓库>/packages/dsh-host-balance
+```
+
+然后重启 `dsh web`。bundle 的 `dsh.bundle.patch` 清单会自动插入 `balance-host` / `balance-client` 两行，无需手工合并 profile patch。
+
+macOS 可改用脚本：`bash scripts/install-macos.sh`（等价于上述两条命令）。
+
+> Windows 平台密钥说明：密钥直存依赖 macOS Keychain。Windows 上请优先在"模型"设置页配置供应商 API Key，再在"余额查询"分区点"使用官方方案"/"接入余额查询"复用模型页凭据；或为自定义供应商启动 `dsh web` 时设置环境变量
+> `DSH_BALANCE_SECRET_<ID>`（`ID` 为供应商标识，非字母数字转 `_`、大写）。
 
 ## 官方接口边界
 
