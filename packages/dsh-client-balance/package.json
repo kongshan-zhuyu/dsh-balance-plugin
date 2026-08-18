@@ -5,15 +5,29 @@
   "type": "module",
   "main": "lib/index.js",
   "exports": {
-    ".": { "default": "./lib/index.js" },
-    "./client": { "default": "./lib/client.js" },
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
     "./package.json": "./package.json"
   },
   "dsh": {
     "client": {
-      "inject": ["@deepseek-ai/dsh-client-runtime", "@deepseek-ai/dsh-client-connection"],
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection"
+      ],
       "platform": "web"
     }
   },
-  "description": "DSH balance client: settings and model-aware status bar"
+  "description": "DSH balance client: provider settings and compact balance status bar",
+  "keywords": [
+    "dsh",
+    "balance",
+    "quota",
+    "provider",
+    "client"
+  ]
 }

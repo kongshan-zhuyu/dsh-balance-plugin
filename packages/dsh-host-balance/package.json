@@ -4,5 +4,12 @@
   "private": true,
   "type": "module",
   "main": "lib/index.js",
-  "description": "DSH balance host: encrypted secrets, validated provider requests, and normalized balances"
+  "description": "DSH balance host: secure provider queries, credentials, caching, and normalized balances",
+  "keywords": [
+    "dsh",
+    "balance",
+    "quota",
+    "provider",
+    "host"
+  ]
 }
