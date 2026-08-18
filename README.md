@@ -70,4 +70,16 @@ macOS 可改用脚本：`bash scripts/install-macos.sh`（等价于上述两条�
 `POST /dsh-balance/preferences` 接受 `{ statusBar, bindings }`；`bindings` 形如
 `{ "deepseek": "my-relay" }` 或 `{ "deepseek/deepseek-chat": "my-relay" }`。
 
+## 复用模型页基础地址
+
+在"余额查询"分区点击模型供应商行的"接入余额查询"，会自动携带该供应商在"模型"页
+配置的 `baseURL` 与凭据引用：
+
+- **地址**：以 `/` 开头（如 `/usage`）时，保存时自动拼接为基础地址 + 路径；
+  直接填写完整 HTTPS 地址则按原样保存。
+- **密钥**：复用模型页 Configured key（或 cc-switch 脚本所需时手动填入）。
+
+自定义余额接口（例如 cc-switch 已配置的 `/api/usage`、`/v1/usage` 等）同样适用，
+地址与 `responsePath` 按实际返回 JSON 填写。
+
 安装前先运行 `npm test` 与 `npm run check`。
