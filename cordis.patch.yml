@@ -1,0 +1,6 @@
+# Add this entry to ~/.dsh/profiles/web/cordis.patch.yml.
+- insert:
+    - id: balance-host
+      name: '@deepseek-ai/dsh-host-balance'
+    - id: balance-client
+      name: '@deepseek-ai/dsh-client-balance'

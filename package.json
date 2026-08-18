@@ -1,0 +1,10 @@
+{
+  "name": "dsh-balance-plugin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test packages/dsh-host-balance/lib/security.test.js",
+    "check": "node --check packages/dsh-host-balance/lib/index.js && node --check packages/dsh-client-balance/lib/client.js"
+  }
+}

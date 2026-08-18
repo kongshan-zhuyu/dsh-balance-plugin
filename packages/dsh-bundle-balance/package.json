@@ -1,0 +1,15 @@
+{
+  "name": "@deepseek-ai/dsh-bundle-balance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["cordis.patch.yml", "package.json"],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-client-balance": "file:../dsh-client-balance",
+    "@deepseek-ai/dsh-host-balance": "file:../dsh-host-balance"
+  },
+  "description": "DSH balance profile bundle"
+}
