@@ -1,11 +1,11 @@
 <div align="center">
 
-# dsh-balance
+# dsh-balance-quota
 
 **Know your spend before you send.** A secure balance & quota status bar for
 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (DSH) Web.
 
-[![npm version](https://img.shields.io/npm/v/dsh-balance?style=flat-square&color=4c8bf5)](https://www.npmjs.com/package/dsh-balance)
+[![npm version](https://img.shields.io/npm/v/dsh-balance-quota?style=flat-square&color=4c8bf5)](https://www.npmjs.com/package/dsh-balance-quota)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-brightgreen.svg?style=flat-square)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey.svg?style=flat-square)](https://github.com/kongshan-zhuyu/dsh-balance-plugin)
@@ -16,7 +16,7 @@
 
 ---
 
-`dsh-balance` grounds your AI provider balance and quota into the DSH Web chat
+`dsh-balance-quota` grounds your AI provider balance and quota into the DSH Web chat
 composer, so you never burn through a quota mid-conversation again. It ships as a
 single installable package that converges the Host query, the Web status bar, the
 settings page, and the release bundle.
@@ -212,7 +212,7 @@ packages/
 └─ dsh-bundle-balance/   # Legacy internal Bundle, kept as a migration regression baseline
 ```
 
-New installs use only `dsh-balance`. The three legacy packages are retained
+New installs use only `dsh-balance-quota`. The three legacy packages are retained
 solely as regression references and are not published independently.
 
 ## ✅ Quality

@@ -11,8 +11,8 @@ const packageRoot = join(root, "packages", "dsh-balance");
 await access(join(packageRoot, "package.json"));
 
 const explicit = process.env.DSH_BIN;
-const command = explicit || (process.platform === "win32" ? "npx.cmd" : "npx");
-const args = explicit
+const command = explicit || "dsh";
+const args = explicit || command === "dsh"
   ? ["plugin", "--profile", profile, "add", packageRoot]
   : ["-y", "@deepseek-ai/dsh", "plugin", "--profile", profile, "add", packageRoot];
 const result = spawnSync(command, args, { cwd: root, stdio: "inherit", shell: false });

@@ -20,4 +20,4 @@ for (const relative of required) {
   const archiveName = relative.replaceAll("\\", "/");
   if (relative !== "package.json" && !output.includes(archiveName)) throw new Error(`required package entry missing from pack output: ${relative}`);
 }
-console.log(`dsh-balance package pack check passed (${manifest.version})`);
+console.log(`${manifest.name} package pack check passed (${manifest.version})`);

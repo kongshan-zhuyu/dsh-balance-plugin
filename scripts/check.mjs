@@ -22,3 +22,8 @@ for (const file of files) {
 const manifest = JSON.parse(await readFile("packages/dsh-balance/package.json", "utf8"));
 if (manifest.dsh?.bundle?.patch !== "./cordis.patch.yml" || manifest.dsh?.client?.platform !== "web") throw new Error("invalid dsh-balance manifest");
 if (!manifest.exports?.["./client"] || !manifest.files?.includes("cordis.patch.yml")) throw new Error("incomplete dsh-balance package manifest");
+const clientBundle = await readFile("packages/dsh-balance/lib/client/client.js", "utf8");
+if (!clientBundle.includes(`id: "${manifest.name}"`)) throw new Error("client bundle loader id must match package name");
+if (!clientBundle.includes(`key: "${manifest.name}"`)) throw new Error("keyed settings slot must use the package name");
+const hostBundle = await readFile("packages/dsh-balance/lib/host/index.js", "utf8");
+if (!hostBundle.includes(`settingsNamespace("${manifest.name}")`)) throw new Error("host settings namespace must match package name");

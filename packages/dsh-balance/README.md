@@ -1,4 +1,4 @@
-# dsh-balance
+# dsh-balance-quota
 
 为 DeepSeek Harness 提供安全的余额与额度状态栏。插件在对话输入框下方显示当前模型对应的余额或用量，并提供供应商管理、模型绑定、缓存和手动刷新。
 

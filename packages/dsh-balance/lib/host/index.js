@@ -3,10 +3,14 @@ import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import dns from "node:dns/promises";
 import https from "node:https";
+import z from "@deepseek-ai/schemastery";
+import { settingsNamespace } from "@deepseek-ai/dsh-settings";
 import { balanceCredentialRef, credentialRefForProvider, ownsCredential, readLegacyMacKeychain, removeLegacyMacKeychain } from "./security.js";
 
 export const name = "balance-host";
 export const inject = ["webServer", "credentials"];
+export const SETTINGS_NAMESPACE = settingsNamespace("dsh-balance-quota");
+const SETTINGS_SCHEMA = z.object({});
 const CONFIG_FILE = join(homedir(), ".dsh", "balance", "config.json");
 const MAX_BODY = 512 * 1024;
 const DEFAULT_REQUEST_TIMEOUT_SECONDS = 10;
@@ -272,19 +276,24 @@ export function resolveBinding(config, model) {
 }
 async function summary(config, model, credentials, force = false, requestedProviderId) { const providerId = isId(requestedProviderId) ? requestedProviderId : resolveBinding(config, model); const providers = providerId ? config.providers.filter((p) => p.id === providerId) : config.providers; return Promise.all(providers.map(async p => { try { return await query(p, credentials, force); } catch (error) { return { id:p.id, name:p.name, status:"error", error: error instanceof Error ? error.message : "request failed" }; } })); }
 export function apply(ctx) {
+  // The Plugins page discovers cards through registered Host namespaces. The
+  // actual balance data stays in this plugin's private config file.
+  ctx.inject(["settings"], (settingsCtx) => {
+    settingsCtx.settings.register(SETTINGS_NAMESPACE, SETTINGS_SCHEMA);
+  });
   const registration = {
     kind: "prefix",
-    path: "/dsh-balance",
+    path: "/dsh-balance-quota",
     handler: async (req, res) => {
     try { const url = new URL(req.url || "/", "http://local"); const config = await loadConfig();
-      if (req.method === "GET" && url.pathname === "/dsh-balance/config") return json(res, 200, { ok:true, config:{ ...config, providers:config.providers.map(redactProvider) } });
-      if (req.method === "GET" && url.pathname === "/dsh-balance/summary") return json(res, 200, { ok:true, providers:await summary(config, url.searchParams.get("model"), ctx.credentials, url.searchParams.get("force") === "1", url.searchParams.get("provider")) });
-      if (req.method === "POST" && url.pathname === "/dsh-balance/provider") { const input=await body(req); const provider=await validateProvider(input); if(typeof input.apiKey === "string" && input.apiKey.length > 0) { if (!ownsCredential(provider)) throw new Error("a provider using a shared credentialRef cannot replace that credential"); await ctx.credentials.set(credentialRefForProvider(provider), input.apiKey); } await mutateConfig(async current => { current.providers=[...current.providers.filter(p=>p.id!==provider.id),provider]; await saveConfig(current); }); cache.delete(provider.id); return json(res,200,{ok:true,provider:redactProvider(provider)}); }
-      if (req.method === "POST" && url.pathname === "/dsh-balance/preferences") { const input=await body(req); await mutateConfig(async current => { current.statusBar=typeof input.statusBar === "boolean"?input.statusBar:current.statusBar; current.bindings=input.bindings && typeof input.bindings === "object" && !Array.isArray(input.bindings)?Object.fromEntries(Object.entries(input.bindings).filter(([model,id])=>typeof model==="string"&&/^[A-Za-z0-9][A-Za-z0-9_./-]{0,63}$/.test(model)&&isId(id)&&current.providers.some(p=>p.id===id))):current.bindings; await saveConfig(current); }); return json(res,200,{ok:true}); }
-      if (req.method === "DELETE" && url.pathname.startsWith("/dsh-balance/provider/")) { const id=decodeURIComponent(url.pathname.slice("/dsh-balance/provider/".length)); if(!isId(id)) return json(res,400,{ok:false,error:"invalid id"}); let removed; await mutateConfig(async current => { removed=current.providers.find(p=>p.id===id); current.providers=current.providers.filter(p=>p.id!==id); current.bindings=Object.fromEntries(Object.entries(current.bindings || {}).filter(([,providerId])=>providerId!==id)); await saveConfig(current); }); if (ownsCredential(removed)) await ctx.credentials.unset(credentialRefForProvider(removed)); cache.delete(id); return json(res,200,{ok:true}); }
+      if (req.method === "GET" && url.pathname === "/dsh-balance-quota/config") return json(res, 200, { ok:true, config:{ ...config, providers:config.providers.map(redactProvider) } });
+      if (req.method === "GET" && url.pathname === "/dsh-balance-quota/summary") return json(res, 200, { ok:true, providers:await summary(config, url.searchParams.get("model"), ctx.credentials, url.searchParams.get("force") === "1", url.searchParams.get("provider")) });
+      if (req.method === "POST" && url.pathname === "/dsh-balance-quota/provider") { const input=await body(req); const provider=await validateProvider(input); if(typeof input.apiKey === "string" && input.apiKey.length > 0) { if (!ownsCredential(provider)) throw new Error("a provider using a shared credentialRef cannot replace that credential"); await ctx.credentials.set(credentialRefForProvider(provider), input.apiKey); } await mutateConfig(async current => { current.providers=[...current.providers.filter(p=>p.id!==provider.id),provider]; await saveConfig(current); }); cache.delete(provider.id); return json(res,200,{ok:true,provider:redactProvider(provider)}); }
+      if (req.method === "POST" && url.pathname === "/dsh-balance-quota/preferences") { const input=await body(req); await mutateConfig(async current => { current.statusBar=typeof input.statusBar === "boolean"?input.statusBar:current.statusBar; current.bindings=input.bindings && typeof input.bindings === "object" && !Array.isArray(input.bindings)?Object.fromEntries(Object.entries(input.bindings).filter(([model,id])=>typeof model==="string"&&/^[A-Za-z0-9][A-Za-z0-9_./-]{0,63}$/.test(model)&&isId(id)&&current.providers.some(p=>p.id===id))):current.bindings; await saveConfig(current); }); return json(res,200,{ok:true}); }
+      if (req.method === "DELETE" && url.pathname.startsWith("/dsh-balance-quota/provider/")) { const id=decodeURIComponent(url.pathname.slice("/dsh-balance-quota/provider/".length)); if(!isId(id)) return json(res,400,{ok:false,error:"invalid id"}); let removed; await mutateConfig(async current => { removed=current.providers.find(p=>p.id===id); current.providers=current.providers.filter(p=>p.id!==id); current.bindings=Object.fromEntries(Object.entries(current.bindings || {}).filter(([,providerId])=>providerId!==id)); await saveConfig(current); }); if (ownsCredential(removed)) await ctx.credentials.unset(credentialRefForProvider(removed)); cache.delete(id); return json(res,200,{ok:true}); }
       return json(res,404,{ok:false,error:"unknown endpoint"});
     } catch (error) { return json(res,errorStatus(error),{ok:false,error:error instanceof Error?error.message:"bad request"}); }
     }
   };
-  ctx.effect(() => ctx.webServer.register(registration), "dsh-balance: routes");
+  ctx.effect(() => ctx.webServer.register(registration), "dsh-balance-quota: routes");
 }

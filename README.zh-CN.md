@@ -1,11 +1,11 @@
 <div align="center">
 
-# dsh-balance
+# dsh-balance-quota
 
 **说话之前，先看余额。** 为 [DeepSeek Harness](https://github.com/deepseek-ai/dsh)（DSH）
 Web 界面提供安全可靠的余额与额度状态栏。
 
-[![npm version](https://img.shields.io/npm/v/dsh-balance?style=flat-square&color=4c8bf5)](https://www.npmjs.com/package/dsh-balance)
+[![npm version](https://img.shields.io/npm/v/dsh-balance-quota?style=flat-square&color=4c8bf5)](https://www.npmjs.com/package/dsh-balance-quota)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-brightgreen.svg?style=flat-square)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey.svg?style=flat-square)](https://github.com/kongshan-zhuyu/dsh-balance-plugin)
@@ -16,7 +16,7 @@ Web 界面提供安全可靠的余额与额度状态栏。
 
 ---
 
-`dsh-balance` 把模型供应商的余额与额度直接带到 DSH Web 对话输入框下方的状态栏，
+`dsh-balance-quota` 把模型供应商的余额与额度直接带到 DSH Web 对话输入框下方的状态栏，
 让你在对话中途不再担心额度悄悄耗尽。它以单个可安装包的形式，把 Host 查询、
 Web 状态栏、设置页与发布 Bundle 收敛为一体。
 
@@ -189,7 +189,7 @@ packages/
 └─ dsh-bundle-balance/   # 旧版内部 Bundle，保留作迁移期回归对照
 ```
 
-新的用户安装只使用 `dsh-balance`。其余三个旧包仅作回归对照保留，不再作为独立发布包。
+新的用户安装只使用 `dsh-balance-quota`。其余三个旧包仅作回归对照保留，不再作为独立发布包。
 
 ## ✅ 质量检查
 

@@ -304,7 +304,7 @@ function BalancePluginCard() {
       ctx.effect(() => { refreshBar(); state.timer = setInterval(refreshBar, 30_000); state.clock = setInterval(() => { if (state.provider) renderBar(state.config || { statusBar: true }, [state.provider]); }, 30_000); const stopObserving = observeMenuDismissal(); return () => { clearInterval(state.timer); clearInterval(state.clock); stopObserving(); state.bar?.remove(); document.querySelector(".dsh-balance-provider-menu")?.remove(); state.style?.remove(); state.bar = state.style = state.provider = null; state.dockListeners.clear(); }; }, "dsh-balance: status bar");
       // 使用 DSH composer dock 插槽，由宿主负责状态栏挂载与会话切换，不再扫描页面 DOM。
       ctx.effect(() => ctx.slots.inject("conversation.composer.dock", () => ctx.slots.register({ name: "conversation.composer.dock", id: "dsh-balance", order: 40 }, BalanceDock)), "dsh-balance: composer dock");
-      ctx.effect(() => ctx.slots.inject("settings.plugin.item", () => ctx.slots.register({ name: "settings.plugin.item", id: "dsh-balance", order: 40, label: () => "余额查询" }, BalancePluginCard)), "dsh-balance: settings");
+      ctx.effect(() => ctx.slots.inject("settings.plugin.item", () => ctx.slots.register({ name: "settings.plugin.item", key: "dsh-balance-quota", id: "dsh-balance-quota", order: 40, label: () => "余额查询" }, BalancePluginCard)), "dsh-balance-quota: settings");
     }
     exports.apply = apply; exports.inject = inject; return module.exports;
   }
