@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { OFFICIAL_PROVIDER_IDS, isOfficialProvider, refreshDue, resolveConversationModel, validateProvider, readJsonPath, readJsonPathExpr, redactProvider, resolveBinding } from "../lib/host/index.js";
+import { OFFICIAL_PROVIDER_IDS, isOfficialProvider, refreshDue, validateProvider, readJsonPath, readJsonPathExpr, redactProvider, resolveBinding } from "../lib/host/index.js";
 import { balanceCredentialRef, credentialRefForProvider, ownsCredential } from "../lib/host/security.js";
 
 test("rejects insecure or local endpoints", async () => {
@@ -76,11 +76,6 @@ test("refreshDue follows each provider query interval", () => {
   assert.equal(refreshDue(provider, "2025-01-01T00:00:00.000Z", Date.parse("2025-01-01T00:30:00.000Z")), true);
   assert.equal(refreshDue(provider, "not-a-date", Date.parse("2025-01-01T00:00:00.000Z")), true);
   assert.equal(refreshDue({ queryIntervalMinutes: 0 }, "2025-01-01T00:00:00.000Z", Date.parse("2025-01-01T00:00:01.000Z")), true);
-});
-test("conversation model uses the latest completed request", () => {
-  assert.equal(resolveConversationModel({ nodes: [{ requestConfig: { provider: "deepseek", model: "deepseek-chat" } }, { requestConfig: { provider: "openai", model: "gpt-4o" } }] }), "openai/gpt-4o");
-  assert.equal(resolveConversationModel({ nodes: [{ kind: "user" }, { requestConfig: { provider: "deepseek" } }] }), undefined);
-  assert.equal(resolveConversationModel(undefined), undefined);
 });
 test("binding resolves an exact route first, then the provider prefix", () => {
   const config = { bindings: { "deepseek/deepseek-chat": "relay-a", "openai": "relay-b" } };

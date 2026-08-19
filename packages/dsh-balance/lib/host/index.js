@@ -270,14 +270,6 @@ export function resolveBinding(config, model) {
   if (typeof model !== "string" || model.length === 0) return undefined;
   return config.bindings[model] || config.bindings[model.split("/")[0]];
 }
-export function resolveConversationModel(snapshot) {
-  const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : [];
-  for (let index = nodes.length - 1; index >= 0; index -= 1) {
-    const request = nodes[index]?.requestConfig;
-    if (typeof request?.provider === "string" && request.provider && typeof request?.model === "string" && request.model) return `${request.provider}/${request.model}`;
-  }
-  return undefined;
-}
 async function summary(config, model, credentials, force = false, requestedProviderId) { const providerId = isId(requestedProviderId) ? requestedProviderId : resolveBinding(config, model); const providers = providerId ? config.providers.filter((p) => p.id === providerId) : config.providers; return Promise.all(providers.map(async p => { try { return await query(p, credentials, force); } catch (error) { return { id:p.id, name:p.name, status:"error", error: error instanceof Error ? error.message : "request failed" }; } })); }
 export function apply(ctx) {
   const registration = {

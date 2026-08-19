@@ -3,11 +3,10 @@ window.__ModuleLoader__.load({
   factory: (require) => {
     const module = { exports: {} }; const exports = module.exports;
     const React = require("react"); const h = React.createElement;
-    const inject = ["slots", "connection", "sessions"];
-    const state = { selectedProviderId: sessionStorage.getItem("dsh-balance:selected-provider"), providers: [], config: null, timer: null, clock: null, bar: null, style: null, provider: null, connection: null, sessions: null, sessionsUnsubscribe: null, sessionUnsubscribe: null, sessionId: null, dockListeners: new Set(), conversationModel: null };
+    const inject = ["slots", "connection"];
+    const state = { selectedProviderId: sessionStorage.getItem("dsh-balance:selected-provider"), providers: [], config: null, timer: null, clock: null, bar: null, style: null, provider: null, connection: null, dockListeners: new Set() };
     const OFFICIAL_PRESETS = new Set(["deepseek", "opencode-go"]);
     const refreshDue = (provider, syncedAt, now = Date.now()) => { const interval = Number(provider?.queryIntervalMinutes ?? 30); const synced = Date.parse(syncedAt || ""); return !Number.isFinite(interval) || interval <= 0 || !Number.isFinite(synced) || now - synced >= interval * 60_000; };
-    const conversationModel = (snapshot) => { const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : []; for (let index = nodes.length - 1; index >= 0; index -= 1) { const request = nodes[index]?.requestConfig; if (typeof request?.provider === "string" && request.provider && typeof request?.model === "string" && request.model) return `${request.provider}/${request.model}`; } return null; };
     const api = async (path, options) => { const res = await fetch(`/dsh-balance${path}`, { cache: "no-store", ...options, headers: { "content-type": "application/json", ...(options?.headers || {}) } }); const data = await res.json(); if (!data.ok) throw new Error(data.error || "余额查询请求失败"); return data; };
     const formatMoney = (value, currency) => { try { return new Intl.NumberFormat("zh-CN", { style: "currency", currency: currency || "CNY", currencyDisplay: "narrowSymbol", maximumFractionDigits: 2 }).format(value); } catch { return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value); } };
     function ensureSettingsStyle() {
@@ -121,20 +120,6 @@ window.__ModuleLoader__.load({
     function notifyDock() {
       for (const listener of state.dockListeners) listener();
     }
-    function syncConversationModel() {
-      const sessionId = state.sessions?.list?.getSnapshot?.().current || null;
-      if (sessionId === state.sessionId) return;
-      state.sessionUnsubscribe?.(); state.sessionUnsubscribe = null; state.sessionId = sessionId; state.conversationModel = null;
-      // 手动选择在会话间保持：用户选过的供应商不随会话切换被自动绑定覆盖。
-      const binding = sessionId ? state.sessions?.binding?.(sessionId) : null;
-      const session = binding?.session;
-      if (session) {
-        const update = () => { const next = conversationModel(session.getSnapshot?.()); if (next !== state.conversationModel) { state.conversationModel = next; refreshBar(); } };
-        state.sessionUnsubscribe = session.subscribe?.(update) || null;
-        update();
-      }
-      refreshBar();
-    }
     function subscribeDock(listener) {
       state.dockListeners.add(listener);
       return () => state.dockListeners.delete(listener);
@@ -221,10 +206,10 @@ window.__ModuleLoader__.load({
     }
     function renderBar(config, providers) {
       if (!config.statusBar) { state.bar?.remove(); state.bar = null; state.provider = null; notifyDock(); return; }
-      const bar = ensureBar(); const boundId = state.conversationModel ? config.bindings?.[state.conversationModel] || config.bindings?.[state.conversationModel.split("/")[0]] : null; const manual = state.selectedProviderId && providers.some(provider => provider.id === state.selectedProviderId) ? providers.find(provider => provider.id === state.selectedProviderId) : null; const selected = manual || (boundId ? providers.find(provider => provider.id === boundId) : null) || providers[0]; const summary = bar.querySelector(".dsh-balance-summary"); state.provider = selected || null; summary.replaceChildren(); summary.className = "dsh-balance-summary";
+      const bar = ensureBar(); const selected = state.selectedProviderId && providers.some(provider => provider.id === state.selectedProviderId) ? providers.find(provider => provider.id === state.selectedProviderId) : providers[0]; const summary = bar.querySelector(".dsh-balance-summary"); state.provider = selected || null; summary.replaceChildren(); summary.className = "dsh-balance-summary";
       const put = (text, className) => { const span = document.createElement("span"); if (className) span.className = className; span.textContent = text; summary.append(span); return span; };
       const dot = document.createElement("i"); dot.className = "dsh-balance-dot"; summary.append(dot);
-      if (!selected) { put(state.conversationModel ? "当前模型未绑定余额供应商" : "发送消息后将按实际模型匹配余额", "dsh-balance-provider"); notifyDock(); return; }
+      if (!selected) { put("未配置余额供应商", "dsh-balance-provider"); notifyDock(); return; }
       put(selected.name, "dsh-balance-provider");
       if (selected.status !== "ok") {
         summary.classList.add("error"); put("查询失败", "dsh-balance-separator"); put(selected.error || "余额查询失败", "dsh-balance-value");
@@ -246,7 +231,7 @@ window.__ModuleLoader__.load({
       refresh.addEventListener("click", async event => { event.stopPropagation(); refresh.disabled = true; refresh.classList.add("loading"); try { await refreshBar(false, true); } finally { refresh.disabled = false; refresh.classList.remove("loading"); } });
       summary.append(refresh); notifyDock();
     }
-    async function refreshBar(reloadConfig = false, force = false, providerId = null) { try { if (reloadConfig || !state.config) state.config = (await api("/config")).config; const boundId = state.conversationModel ? state.config.bindings?.[state.conversationModel] || state.config.bindings?.[state.conversationModel.split("/")[0]] : null; const targetId = providerId || boundId || (force ? state.provider?.id : null); const query = new URLSearchParams(); if (force) query.set("force", "1"); if (targetId) query.set("provider", targetId); const result = (await api(`/summary${query.size ? `?${query}` : ""}`)).providers; const providers = targetId ? [...state.providers.filter(provider => provider.id !== targetId), ...result] : result; state.providers = providers; const manual = state.selectedProviderId && providers.some(provider => provider.id === state.selectedProviderId) ? providers.find(provider => provider.id === state.selectedProviderId) : null; let selected = manual || (boundId ? providers.find(provider => provider.id === boundId) : null) || providers[0]; if (!selected && providers.length) { selected = providers[0]; state.selectedProviderId = selected.id; sessionStorage.setItem("dsh-balance:selected-provider", selected.id); } else if (!selected) { state.selectedProviderId = null; sessionStorage.removeItem("dsh-balance:selected-provider"); } renderBar(state.config, providers); } catch { if (state.bar) { state.provider = { name: "余额查询", status: "error", error: "网络连接不可用" }; renderBar(state.config || { statusBar: true }, [state.provider]); } } }
+    async function refreshBar(reloadConfig = false, force = false, providerId = null) { try { if (reloadConfig || !state.config) state.config = (await api("/config")).config; const targetId = providerId || (force ? state.provider?.id : null); const query = new URLSearchParams(); if (force) query.set("force", "1"); if (targetId) query.set("provider", targetId); const result = (await api(`/summary${query.size ? `?${query}` : ""}`)).providers; const providers = targetId ? [...state.providers.filter(provider => provider.id !== targetId), ...result] : result; state.providers = providers; const manual = state.selectedProviderId && providers.some(provider => provider.id === state.selectedProviderId) ? providers.find(provider => provider.id === state.selectedProviderId) : null; let selected = manual || providers[0]; if (!selected && providers.length) { selected = providers[0]; state.selectedProviderId = selected.id; sessionStorage.setItem("dsh-balance:selected-provider", selected.id); } else if (!selected) { state.selectedProviderId = null; sessionStorage.removeItem("dsh-balance:selected-provider"); } renderBar(state.config, providers); } catch { if (state.bar) { state.provider = { name: "余额查询", status: "error", error: "网络连接不可用" }; renderBar(state.config || { statusBar: true }, [state.provider]); } } }
     function SettingsSection() {
       try {
       const [config, setConfig] = React.useState(null); const [message, setMessage] = React.useState(""); const [messageKind, setMessageKind] = React.useState("ok"); const [statuses, setStatuses] = React.useState({}); const [editing, setEditing] = React.useState(null); const [modelProviders, setModelProviders] = React.useState([]);
@@ -316,9 +301,9 @@ function BalancePluginCard() {
       );
     }
     function apply(ctx) {
-      state.connection = ctx.get("connection"); state.sessions = ctx.get("sessions");
+      state.connection = ctx.get("connection");
       ensureSettingsStyle();
-      ctx.effect(() => { const refreshIfDue = () => { if (document.visibilityState !== "visible") return; const provider = state.provider; if (!provider || refreshDue(provider, provider.syncedAt)) refreshBar(false, false, provider?.id); else renderBar(state.config || { statusBar: true }, state.providers); }; const onVisibilityChange = () => { if (document.visibilityState === "visible") { syncConversationModel(); refreshIfDue(); } }; const onSessionsChange = () => syncConversationModel(); state.sessionsUnsubscribe = state.sessions?.list?.subscribe?.(onSessionsChange) || null; syncConversationModel(); refreshIfDue(); state.timer = setInterval(refreshIfDue, 30_000); state.clock = setInterval(() => { if (document.visibilityState === "visible" && state.provider) renderBar(state.config || { statusBar: true }, state.providers); }, 30_000); document.addEventListener("visibilitychange", onVisibilityChange); const stopObserving = observeMenuDismissal(); return () => { clearInterval(state.timer); clearInterval(state.clock); document.removeEventListener("visibilitychange", onVisibilityChange); state.sessionsUnsubscribe?.(); state.sessionUnsubscribe?.(); state.sessionsUnsubscribe = state.sessionUnsubscribe = null; state.sessionId = state.conversationModel = null; stopObserving(); state.bar?.remove(); document.querySelector(".dsh-balance-provider-menu")?.remove(); state.style?.remove(); state.bar = state.style = state.provider = null; state.dockListeners.clear(); }; }, "dsh-balance: status bar");
+      ctx.effect(() => { const refreshIfDue = () => { if (document.visibilityState !== "visible") return; const provider = state.provider; if (!provider || refreshDue(provider, provider.syncedAt)) refreshBar(false, false, provider?.id); else renderBar(state.config || { statusBar: true }, state.providers); }; const onVisibilityChange = () => { if (document.visibilityState === "visible") refreshIfDue(); }; refreshIfDue(); state.timer = setInterval(refreshIfDue, 30_000); state.clock = setInterval(() => { if (document.visibilityState === "visible" && state.provider) renderBar(state.config || { statusBar: true }, state.providers); }, 30_000); document.addEventListener("visibilitychange", onVisibilityChange); const stopObserving = observeMenuDismissal(); return () => { clearInterval(state.timer); clearInterval(state.clock); document.removeEventListener("visibilitychange", onVisibilityChange); stopObserving(); state.bar?.remove(); document.querySelector(".dsh-balance-provider-menu")?.remove(); state.style?.remove(); state.bar = state.style = state.provider = null; state.dockListeners.clear(); }; }, "dsh-balance: status bar");
       // 使用 DSH composer dock 插槽，由宿主负责状态栏挂载与会话切换，不再扫描页面 DOM。
       ctx.effect(() => ctx.slots.inject("conversation.composer.dock", () => ctx.slots.register({ name: "conversation.composer.dock", id: "dsh-balance", order: 40 }, BalanceDock)), "dsh-balance: composer dock");
       ctx.effect(() => ctx.slots.inject("settings.plugin.item", () => ctx.slots.register({ name: "settings.plugin.item", id: "dsh-balance", order: 40, label: () => "余额查询" }, BalancePluginCard)), "dsh-balance: settings");
