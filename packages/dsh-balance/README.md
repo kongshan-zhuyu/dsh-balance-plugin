@@ -11,18 +11,6 @@
 
 其他模型供应商（如 Claude、Gemini、OpenAI、Kimi、智谱、通义千问）可通过其**公开且可验证的 HTTPS 余额/额度接口**作为自定义供应商接入。插件不会把聊天、`countTokens` 或单次请求 usage 接口误当成账户余额接口。
 
-## 效果预览
-
-状态栏：
-
-![余额状态栏](../../../design-balance-status.png)
-
-设置页：
-
-![余额设置页](../../../verify-balance-settings.png)
-
-> 截图位于仓库根目录，仅用于 GitHub README 预览；发布到 npm 的包不包含截图文件。
-
 ## 安装
 
 需要 Node.js 22 或更高版本，以及可用的 DSH CLI。
