@@ -76,7 +76,7 @@ Web 状态栏、设置页与发布 Bundle 收敛为一体。
 安装最新版本：
 
 ```bash
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance-quota
+dsh plugin --profile web add dsh-balance-quota
 ```
 
 安装或升级后重启 Web Profile：
