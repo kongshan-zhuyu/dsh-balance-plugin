@@ -18,7 +18,7 @@
 ### 从 npm 安装
 
 ```bash
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance@0.3.0
+npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance@0.3.1
 ```
 
 ### 本地开发安装

@@ -2,12 +2,21 @@
 
 `dsh-balance` 是 DeepSeek Harness 的余额与额度插件。它把 Host 查询、Web 状态栏、设置页和 Bundle 收敛为一个可安装包，支持 DeepSeek、OpenCode Go 和自定义供应商。
 
+## 已验证的官方方案
+
+| 供应商 | 显示内容 | 说明 |
+| --- | --- | --- |
+| DeepSeek | 可用余额 | 使用 DeepSeek 官方 `/user/balance` 接口。 |
+| OpenCode Go | 滚动、每周、每月用量 | 使用 OpenCode Go 官方用量接口。 |
+
+其他模型供应商（如 Claude、Gemini、OpenAI、Kimi、智谱、通义千问）可通过其**公开且可验证的 HTTPS 余额/额度接口**作为自定义供应商接入。插件不会把聊天、`countTokens` 或单次请求 usage 接口误当成账户余额接口。
+
 ## 用户安装
 
 需要 Node.js 22 或更高版本。直接安装固定版本：
 
 ```bash
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance@0.3.0
+npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance@0.3.1
 ```
 
 安装或更新后重启 Web Profile：
@@ -42,6 +51,22 @@ pnpm dev:install
 - JSON 路径支持 `?.` 可选链和最多 5 个 `??` 回退分支，例如 `$.remaining ?? $.quota?.remaining ?? $.balance`。
 - 优先复用 DSH 模型页的基础地址和 credential ref。
 
+## 会话模型绑定
+
+状态栏订阅 DSH 当前会话及其 conversation snapshot，并以该会话**最近一次实际完成请求**使用的 `provider/model` 作为依据，自动显示匹配绑定的供应商：
+
+- 供应商可绑定到精确模型路由（例如 `deepseek/deepseek-chat`）或供应商前缀（例如 `deepseek`）。
+- 全新且尚未发送消息的会话不会猜测模型，发送第一条消息后会自动匹配。
+- 切换会话或模型后，状态栏自动跟随当前会话的绑定显示。
+
+## 刷新与性能
+
+- 每个供应商可单独设置查询间隔 `queryIntervalMinutes`，默认 30 分钟。
+- 页面处于后台时，插件不自动刷新。
+- 页面重新可见时，插件会检查当前供应商是否已超过设置的间隔；只有到期才查询。
+- Host 按供应商缓存结果，因此多个会话使用同一个模型/供应商时会复用同一份结果。
+- 状态栏的刷新按钮会强制绕过缓存，立即查询。
+
 ## 凭据和平台支持
 
 插件统一使用 DSH `credentials` 服务，不再区分 macOS、Windows 和 Linux 的安装或配置流程。自定义 API Key 不写入余额 JSON 配置，也不会通过浏览器配置接口返回；模型页共享凭据不会被插件覆盖或删除。
@@ -69,7 +94,7 @@ pnpm pack:check
 pnpm verify
 ```
 
-GitHub Actions 会在 Ubuntu、Windows、macOS 以及 Node.js 22/24 上运行相同检查。发布包使用 `files` 白名单，不会包含根目录设计稿、PNG 截图、`.git` 或本地验证产物。
+GitHub Actions 会在 Ubuntu、Windows、macOS 以及 Node.js 22/24 上运行相同检查。发布包使用 `files` 白名单，只包含运行时代码和文档。
 
 ## 文档
 
