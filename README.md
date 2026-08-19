@@ -83,7 +83,7 @@ Requires **Node.js 22+** and the DSH CLI.
 Install the pinned release:
 
 ```bash
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance@0.3.1
+npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance-quota@0.3.1
 ```
 
 Restart the Web profile after installing or updating:

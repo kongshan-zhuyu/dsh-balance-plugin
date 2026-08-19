@@ -1,5 +1,5 @@
 {
-  "name": "dsh-balance",
+  "name": "dsh-balance-quota",
   "version": "0.3.1",
   "description": "DeepSeek Harness plugin for secure provider balance and quota display",
   "type": "module",
