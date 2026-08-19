@@ -1,91 +1,221 @@
-# DSH Balance
+<div align="center">
 
-`dsh-balance` 是 DeepSeek Harness 的余额与额度插件。它把 Host 查询、Web 状态栏、设置页和 Bundle 收敛为一个可安装包，支持 DeepSeek、OpenCode Go 和自定义供应商。
+# dsh-balance
 
-## 已验证的官方方案
+**Know your spend before you send.** A secure balance & quota status bar for
+[DeepSeek Harness](https://github.com/deepseek-ai/dsh) (DSH) Web.
 
-| 供应商 | 显示内容 | 说明 |
-| --- | --- | --- |
-| DeepSeek | 可用余额 | 使用 DeepSeek 官方 `/user/balance` 接口。 |
-| OpenCode Go | 滚动、每周、每月用量 | 使用 OpenCode Go 官方用量接口。 |
+[![npm version](https://img.shields.io/npm/v/dsh-balance?style=flat-square&color=4c8bf5)](https://www.npmjs.com/package/dsh-balance)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](./LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522-brightgreen.svg?style=flat-square)](https://nodejs.org)
+[![Platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey.svg?style=flat-square)](https://github.com/kongshan-zhuyu/dsh-balance-plugin)
 
-其他模型供应商（如 Claude、Gemini、OpenAI、Kimi、智谱、通义千问）可通过其**公开且可验证的 HTTPS 余额/额度接口**作为自定义供应商接入。插件不会把聊天、`countTokens` 或单次请求 usage 接口误当成账户余额接口。
+**English** · [简体中文](./README.zh-CN.md)
 
-## 用户安装
+</div>
 
-需要 Node.js 22 或更高版本。直接安装固定版本：
+---
+
+`dsh-balance` grounds your AI provider balance and quota into the DSH Web chat
+composer, so you never burn through a quota mid-conversation again. It ships as a
+single installable package that converges the Host query, the Web status bar, the
+settings page, and the release bundle.
+
+> **🎯 What it does** — Shows a live balance/quota strip in the composer, with
+> per-conversation provider memory and a one-click switch menu.
+> **🧩 Compatibility** — DSH Web, Node.js 22+; official presets for DeepSeek and
+> OpenCode Go, plus any public HTTPS balance endpoint.
+> **🔐 Security** — HTTPS-only, DNS-rebinding protected; API keys stay host-side in
+> the DSH keychain and never reach the browser.
+
+- ✅ **Official presets** — DeepSeek balance and OpenCode Go quota out of the box.
+- 🔐 **Secure by default** — HTTPS-only, DNS-rebinding protected, credentials in the DSH keychain.
+- 🎯 **Custom any provider** — plug in any public HTTPS balance/quota endpoint with JSON-path extraction.
+- 🧠 **Per-conversation memory** — each chat remembers the provider you picked for it.
+
+---
+
+## 🖥️ Interface at a glance
+
+The plugin paints a compact strip **right below the message input** in every chat:
+
+```text
+  ● DeepSeek  · 可用余额  ¥12.34    3 分钟前更新  [↻]
+   └─ green dot = healthy        bold = the value        ↻ = force refresh
+```
+
+- **Status bar** — a small, unobtrusive line: a healthy/unhealthy dot, the provider
+  name, then the balance (`· 可用余额 ¥12.34`) or usage windows
+  (`· 滚动 12% · 每周 45%` for OpenCode Go), a last-updated hint, and a ↻ refresh
+  button.
+- **Provider menu** — click the provider name and a small dropdown opens, listing
+  every configured provider with its current value and a ✓ on the active one.
+- **Settings** — a **余额查询 / Balance** card under **Settings → Plugins** lists
+  providers with a live status dot, per-provider meta (balance or usage %), an
+  "Edit / Delete" action, a model-route binding selector, plus a global status-bar
+  on/off toggle and a refresh button.
+
+---
+
+## ✨ Features
+
+- **Balance & quota at a glance** — shows available balance for DeepSeek, or
+  rolling / weekly / monthly usage for OpenCode Go, right in the composer.
+- **One-click provider switching** — click the provider name in the status bar to
+  open a menu and swap providers on the fly.
+- **Per-conversation memory** — the provider you choose sticks to that conversation
+  and is restored when you return; unselected conversations show the first
+  configured provider.
+- **Official presets** — DeepSeek `/user/balance` and OpenCode Go usage, verified.
+- **Custom providers** — any public HTTPS balance/quota endpoint, `GET` or body-less
+  `POST`, custom headers, timeout, cache interval, currency, and amount conversion.
+- **Powerful JSON-path extraction** — optional chaining (`?.`) and up to five
+  `??` fallbacks, e.g. `$.remaining ?? $.quota?.remaining ?? $.balance`.
+- **Reuses your model config** — prefers the base URL and credential ref already
+  configured on the DSH Models page.
+- **Efficient** — per-provider refresh interval (default 30 min), no background
+  polling, shared Host cache, and a manual force-refresh button.
+
+## 📦 Installation
+
+Requires **Node.js 22+** and the DSH CLI.
+
+Install the pinned release:
 
 ```bash
 npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance@0.3.1
 ```
 
-安装或更新后重启 Web Profile：
+Restart the Web profile after installing or updating:
 
 ```bash
 dsh web
 ```
 
-查看插件：
+Verify it is installed:
 
 ```bash
 dsh plugin --profile web list
 ```
 
-删除时使用当前 CLI 帮助中显示的 profile 插件 remove 命令；不同 DSH 版本的删除参数可能不同，因此不在脚本中硬编码未经验证的变体。
+> [!NOTE]
+> Removal uses the `plugin remove` command shown in your current `dsh plugin --help`;
+> the remove flag varies across DSH releases, so this repo does not hard-code an
+> unverified variant.
 
-## 本地开发
+### Local development
 
 ```bash
 pnpm install
-pnpm dev:install
+pnpm dev:install   # installs only packages/dsh-balance, picks the right DSH CLI per OS
 ```
 
-开发者安装脚本只安装 `packages/dsh-balance` 这个本地包。它会在 Windows、macOS 和 Linux 内部选择正确的 DSH CLI，不要求用户手动区分系统，也不要求普通用户安装 pnpm。
+## ⚙️ Configuration
 
-## 功能
+Open **Settings → Plugins → Balance (余额查询)**.
 
-- 在设置 → 插件 → 插件配置中管理余额供应商。
-- 在对话输入框状态栏显示余额、额度窗口、刷新时间和错误状态。
-- 内置 DeepSeek 余额和 OpenCode Go 滚动/每周/月度额度。
-- 自定义接口支持公网 HTTPS、GET、无请求体 POST、自定义请求头和金额换算。
-- JSON 路径支持 `?.` 可选链和最多 5 个 `??` 回退分支，例如 `$.remaining ?? $.quota?.remaining ?? $.balance`。
-- 优先复用 DSH 模型页的基础地址和 credential ref。
+1. For **DeepSeek** or **OpenCode Go**, click **Use official preset** on the matching
+   model provider.
+2. The plugin reuses the credential ref from the Models page — it never overwrites
+   or deletes that shared credential.
+3. For any other provider, choose **Add balance query**, enter the public HTTPS
+   balance/quota endpoint and the JSON path.
 
-## 供应商选择
+You can enable or disable the status bar with the toggle at the bottom of the
+settings section, and bind a provider to a model route for tidier organization.
 
-状态栏显示你手动选择的供应商。点击状态栏供应商名称可在菜单中切换：
+### Custom provider example
 
-- **每个会话独立记忆**：在某个会话里选择的供应商只对该会话生效，切换会话后自动恢复该会话上次的选择。
-- 未手动选择过的会话，显示第一个已配置的供应商。
-- 设置页仍可把供应商绑定到模型路由，但状态栏不再根据会话模型自动切换；绑定仅用于设置页的整理与展示。
+```text
+Balance path:    $.remaining ?? $.quota?.remaining ?? $.balance
+Currency:        $.unit ?? "USD"
+```
 
-## 刷新与性能
+Supported: public HTTPS endpoints only, `GET` or body-less `POST`, JSON property
+paths with `?.` and up to five `??` branches, fixed ISO 4217 currency or read-from-
+response, custom request headers, timeout, cache interval, and amount conversion.
 
-- 每个供应商可单独设置查询间隔 `queryIntervalMinutes`，默认 30 分钟。
-- 页面处于后台时，插件不自动刷新。
-- 页面重新可见时，插件会检查当前供应商是否已超过设置的间隔；只有到期才查询。
-- Host 按供应商缓存结果，因此多个会话使用同一个模型/供应商时会复用同一份结果。
-- 状态栏的刷新按钮会强制绕过缓存，立即查询。
+### Options
 
-## 凭据和平台支持
+| Option | Default | Description |
+| --- | --- | --- |
+| `statusBar` | `true` | Show/hide the balance bar in the composer. |
+| `queryIntervalMinutes` | `30` | Per-provider refresh interval (0 disables auto refresh). |
+| `timeoutSeconds` | `10` | Request timeout for a custom provider. |
+| `method` | `GET` | `GET` or body-less `POST`. |
+| `responsePath` | — | JSON path to the balance value, with `?.` / `??` support. |
+| `currency` | `"USD"` | Fixed ISO 4217 code, or an expression like `$.unit ?? "USD"`. |
+| `valueDivisor` | `1` | Raw value ÷ divisor = displayed amount (for unit-based quotas). |
+| `headers` | `{}` | Extra request headers (`Authorization` is auto-injected).
 
-插件统一使用 DSH `credentials` 服务，不再区分 macOS、Windows 和 Linux 的安装或配置流程。自定义 API Key 不写入余额 JSON 配置，也不会通过浏览器配置接口返回；模型页共享凭据不会被插件覆盖或删除。
+## 🧠 Provider selection
 
-旧版本 macOS Keychain 中的凭据只作为一次性迁移来源。升级后首次使用时，插件会尝试迁移到 DSH 凭据服务；新版本不再调用操作系统专用 Keychain 命令。
+The status bar always shows the provider **you** selected. The menu remembers the
+choice **per conversation** — switch conversations and the bar restores that
+conversation's last choice. Conversations you haven't touched show the first
+configured provider. Settings binding is organizational; the bar no longer
+auto-switches based on the conversation's model.
 
-## 项目结构
+## 🔄 Refresh & performance
+
+- Each provider has its own `queryIntervalMinutes` (default **30 min**).
+- The plugin does **not** auto-refresh while the page is in the background.
+- On returning to visibility, it refreshes only when the current provider is due.
+- The Host caches per provider, so multiple conversations on the same provider share one result.
+- The status bar's ↻ button force-refreshes, bypassing the cache.
+
+## 🔐 Credentials & security
+
+Credentials are stored and resolved through the DSH `credentials` service — no OS
+special-casing. Custom API keys never land in the balance JSON config and are never
+returned through the browser config API, and your shared Models-page credentials
+are never overwritten or deleted by the plugin.
+
+Balance endpoints must be **public HTTPS**. The plugin rejects private/loopback
+addresses, internal hostnames, redirects, dangerous request headers, and oversized
+responses, and re-validates DNS on every request to mitigate DNS-rebinding attacks.
+See [SECURITY.md](./SECURITY.md) for details.
+
+## ❓ FAQ
+
+**Why does the status bar show "未配置余额供应商" (no provider configured)?**
+No provider is configured yet — or none is bound to the current conversation.
+Open **Settings → Plugins → Balance** and configure a provider, then the bar will
+pick the first configured one.
+
+**My key shows "查询失败" (query failed) but the endpoint is correct.**
+The plugin only calls public HTTPS endpoints and will refuse private/loopback
+addresses, internal hostnames, and redirects on purpose. Also make sure the
+credential ref resolves (see the Models page) and the JSON path matches the
+response shape. Use the ↻ button to force a fresh query.
+
+**Does the plugin know which account I'm using?** It reuses the credential ref and
+base URL already configured on the DSH Models page, so it tracks whatever model
+account DSH is using — and it never overwrites or deletes that shared credential.
+
+**Will it poll and drain my quota?** No. The page auto-refreshes at most every
+`queryIntervalMinutes` (default 30 min) and only while visible; it never polls in
+the background. The host caches per provider, so multiple conversations share one
+query result.
+
+**Is my API key safe in the browser?** The key never lives in the balance JSON
+config and is never returned through the browser config API — it is resolved
+host-side through the DSH `credentials` service. See [SECURITY.md](./SECURITY.md).
+
+## 🗂️ Project structure
 
 ```text
 packages/
-├─ dsh-balance/          # 对外安装包：Host、Client、Bundle、测试和发布文档
-├─ dsh-host-balance/     # 旧版内部 Host，保留作迁移期回归对照
-├─ dsh-client-balance/   # 旧版内部 Client，保留作迁移期回归对照
-└─ dsh-bundle-balance/   # 旧版内部 Bundle，保留作迁移期回归对照
+├─ dsh-balance/          # The shipped package: Host, Client, Bundle, tests, docs
+├─ dsh-host-balance/     # Legacy internal Host, kept as a migration regression baseline
+├─ dsh-client-balance/   # Legacy internal Client, kept as a migration regression baseline
+└─ dsh-bundle-balance/   # Legacy internal Bundle, kept as a migration regression baseline
 ```
 
-新的用户安装只使用 `dsh-balance`。旧三个包不应继续作为独立发布包。
+New installs use only `dsh-balance`. The three legacy packages are retained
+solely as regression references and are not published independently.
 
-## 质量检查
+## ✅ Quality
 
 ```bash
 pnpm check
@@ -94,15 +224,15 @@ pnpm pack:check
 pnpm verify
 ```
 
-GitHub Actions 会在 Ubuntu、Windows、macOS 以及 Node.js 22/24 上运行相同检查。发布包使用 `files` 白名单，只包含运行时代码和文档。
+CI runs the same checks on Ubuntu, Windows, and macOS across Node.js 22 and 24.
+The published package uses a `files` allowlist containing only runtime code and docs.
 
-## 文档
+## 📚 Docs
 
-- [统一包说明](./packages/dsh-balance/README.md)
-- [安全策略](./SECURITY.md)
-- [变更日志](./CHANGELOG.md)
-- [MIT License](./LICENSE)
+- [Package README](./packages/dsh-balance/README.md)
+- [Security policy](./SECURITY.md)
+- [Changelog](./CHANGELOG.md)
 
-## 许可证
+## 📄 License
 
-MIT License，详见 [LICENSE](./LICENSE)。
+[MIT](./LICENSE) © kongshan-zhuyu

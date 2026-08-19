@@ -1,6 +1,7 @@
 node_modules/
 .DS_Store
 *.log
+browser-screenshots/
 config.local.json
 *.key
 artifacts/
