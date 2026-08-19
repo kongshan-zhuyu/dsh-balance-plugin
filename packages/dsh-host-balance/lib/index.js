@@ -38,6 +38,33 @@ function json(value, status, body) {
 function isId(value) { return typeof value === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(value); }
 function isCredentialRef(value) { return typeof value === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(value); }
 function safePath(value) { return typeof value === "string" && /^\$(?:\.[A-Za-z_$][A-Za-z0-9_$]*){1,8}$/.test(value) && !/(?:__proto__|constructor|prototype)/.test(value); }
+// 路径表达式：支持 ?? 回退链、?. 可选链、根节点 $ 或 response，以及 "USD" 这类字符串兜底。
+// 只做结构化解析，绝不执行任意 JavaScript。
+const PATH_EXPR_SEGMENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const PATH_EXPR_RE = /^(?:\$|response)(?:(?:\.|\?\.)[A-Za-z_$][A-Za-z0-9_$]*){1,8}$/;
+const PATH_EXPR_LITERAL = /^"[A-Za-z0-9 _./:-]{1,32}"$/;
+function parsePathExpr(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length > 512) return null;
+  const parts = value.split("??");
+  if (parts.length < 1 || parts.length > 5) return null;
+  const alternatives = [];
+  for (const raw of parts) {
+    const part = raw.trim();
+    if (!part) return null;
+    if (part.startsWith('"')) {
+      if (!PATH_EXPR_LITERAL.test(part)) return null;
+      alternatives.push({ kind: "literal", value: part.slice(1, -1) });
+      continue;
+    }
+    if (!PATH_EXPR_RE.test(part)) return null;
+    const rest = part.startsWith("response") ? part.slice("response".length) : part.slice(1);
+    const segments = rest.split(/(?:\?\.|\.)/).filter(Boolean);
+    for (const segment of segments) if (!PATH_EXPR_SEGMENT.test(segment) || /^(?:__proto__|constructor|prototype)$/.test(segment)) return null;
+    alternatives.push({ kind: "path", segments });
+  }
+  return alternatives;
+}
+function safePathExpr(value) { return parsePathExpr(value) !== null; }
 function safeHeaders(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const out = {};
@@ -102,18 +129,37 @@ export async function validateProvider(input) {
   const queryIntervalMinutes = Number.isFinite(Number(input.queryIntervalMinutes)) ? Math.max(0, Math.min(1440, Math.trunc(Number(input.queryIntervalMinutes)))) : DEFAULT_QUERY_INTERVAL_MINUTES;
   if (input.preset === "deepseek") return { id: input.id, name: input.name.trim(), endpoint: "https://api.deepseek.com/user/balance", method: "GET", responsePath: "$.balance_infos", currency: "CNY", auth: "bearer", authHeader: "Authorization", headers: {}, usageWindows: [], timeoutSeconds, queryIntervalMinutes, preset: "deepseek", ...(isCredentialRef(input.credentialRef) ? { credentialRef: input.credentialRef } : {}) };
   if (input.preset === "opencode-go") return { id: input.id, name: input.name.trim(), endpoint: "https://opencode.ai/zen/go/v1/usage", method: "GET", responsePath: "$.usage.rolling.percent", currency: "USD", auth: "bearer", authHeader: "Authorization", headers: {}, usageWindows: [{ type: "rolling", percentPath: "$.usage.rolling.percent", resetAtPath: "$.usage.rolling.resetsAt" }, { type: "weekly", percentPath: "$.usage.weekly.percent", resetAtPath: "$.usage.weekly.resetsAt" }, { type: "monthly", percentPath: "$.usage.monthly.percent", resetAtPath: "$.usage.monthly.resetsAt" }], timeoutSeconds, queryIntervalMinutes, preset: "opencode-go", ...(isCredentialRef(input.credentialRef) ? { credentialRef: input.credentialRef } : {}) };
-  if (!safePath(input.responsePath)) throw new Error("responsePath must be a simple JSON path such as $.data.balance");
+  if (!safePathExpr(input.responsePath)) throw new Error("responsePath must be a simple JSON path or ?? fallback chain such as $.remaining ?? $.balance");
   const endpoint = await publicEndpoint(input.endpoint);
   const usageWindows = Array.isArray(input.usageWindows) ? input.usageWindows.slice(0, 3).map((item) => {
     if (!item || !["rolling", "weekly", "monthly"].includes(item.type) || !safePath(item.percentPath) || !safePath(item.resetAtPath)) throw new Error("invalid usage window");
     return { type: item.type, percentPath: item.percentPath, resetAtPath: item.resetAtPath };
   }) : [];
   const valueDivisor = Number.isFinite(Number(input.valueDivisor)) ? Math.max(1, Number(input.valueDivisor)) : 1;
-  return { id: input.id, name: input.name.trim(), endpoint, method: input.method === "POST" ? "POST" : "GET", responsePath: input.responsePath, currency: typeof input.currency === "string" && /^[A-Z]{3}$/.test(input.currency) ? input.currency : "CNY", auth: input.auth === "header" ? "header" : "bearer", authHeader: input.auth === "header" && /^[A-Za-z0-9-]{1,64}$/.test(input.authHeader) ? input.authHeader : "Authorization", headers: safeHeaders(input.headers), usageWindows, timeoutSeconds, queryIntervalMinutes, valueDivisor, ...(isCredentialRef(input.credentialRef) ? { credentialRef: input.credentialRef } : {}) };
+  return { id: input.id, name: input.name.trim(), endpoint, method: input.method === "POST" ? "POST" : "GET", responsePath: input.responsePath, currency: typeof input.currency === "string" && /^[A-Z]{3}$/.test(input.currency) ? input.currency : safePathExpr(input.currency) ? input.currency : "CNY", auth: input.auth === "header" ? "header" : "bearer", authHeader: input.auth === "header" && /^[A-Za-z0-9-]{1,64}$/.test(input.authHeader) ? input.authHeader : "Authorization", headers: safeHeaders(input.headers), usageWindows, timeoutSeconds, queryIntervalMinutes, valueDivisor, ...(isCredentialRef(input.credentialRef) ? { credentialRef: input.credentialRef } : {}) };
 }
 export function readJsonPath(data, path) {
   if (!safePath(path)) throw new Error("unsafe JSON path");
   return path.slice(2).split(".").reduce((value, key) => value && typeof value === "object" ? value[key] : undefined, data);
+}
+export function readJsonPathExpr(data, expr) {
+  const parsed = parsePathExpr(expr);
+  if (!parsed) throw new Error("unsafe JSON path expression");
+  for (const alternative of parsed) {
+    const value = alternative.kind === "literal" ? alternative.value
+      : alternative.segments.reduce((current, key) => current && typeof current === "object" ? current[key] : undefined, data);
+    // nullish 语义：0 / "" / false 都是有效结果，只有 null 与 undefined 才继续回退。
+    if (value !== null && value !== undefined) return value;
+  }
+  return undefined;
+}
+function resolveCurrency(data, currency) {
+  if (typeof currency === "string" && /^[A-Z]{3}$/.test(currency)) return currency;
+  try {
+    const resolved = readJsonPathExpr(data, currency);
+    if (typeof resolved === "string" && /^[A-Z]{3}$/.test(resolved)) return resolved;
+  } catch {}
+  return "CNY";
 }
 export function redactProvider(provider) { const { apiKey, ...safe } = provider; return safe; }
 async function loadConfig() {
@@ -158,10 +204,10 @@ async function query(provider, credentials, force = false) {
   let data; try { data = JSON.parse(text); } catch { throw new HttpError(502, "provider returned invalid JSON"); }
   const deepSeekBalance = provider.preset === "deepseek" && Array.isArray(data.balance_infos) ? data.balance_infos.find((item) => item?.currency === provider.currency) || data.balance_infos[0] : undefined;
   // OpenCode Go 只返回额度窗口，不返回货币余额。
-  const rawAvailable = Number(deepSeekBalance?.total_balance ?? readJsonPath(data, provider.responsePath));
+  const rawAvailable = Number(deepSeekBalance?.total_balance ?? readJsonPathExpr(data, provider.responsePath));
   const available = provider.preset === "opencode-go" ? undefined : rawAvailable / Math.max(1, Number(provider.valueDivisor || 1)); if (provider.preset !== "opencode-go" && !Number.isFinite(available)) throw new HttpError(502, "balance response does not contain a numeric value");
   const usageWindows = provider.usageWindows.map((window) => ({ type: window.type, percent: Math.max(0, Math.min(100, Number(readJsonPath(data, window.percentPath)) || 0)), resetAt: String(readJsonPath(data, window.resetAtPath) || "") }));
-  const value = { id: provider.id, name: provider.name, ...(available === undefined ? {} : { available, currency: provider.currency }), usageWindows, syncedAt: new Date().toISOString(), status: "ok" };
+  const value = { id: provider.id, name: provider.name, ...(available === undefined ? {} : { available, currency: resolveCurrency(data, provider.currency) }), usageWindows, syncedAt: new Date().toISOString(), status: "ok" };
   cache.set(provider.id, { at: Date.now(), value }); return value;
 }
 export function resolveBinding(config, model) {

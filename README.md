@@ -2,7 +2,7 @@
 
 为 DeepSeek Harness（DSH）提供模型供应商余额与额度查询，并通过对话输入框的 `conversation.composer.dock` 插槽显示当前选中的余额状态。
 
-> 当前版本：`0.1.0`
+> 当前版本：`0.2.0`
 > 运行形态：DSH Web Profile 的 Host + Client 双端插件
 
 ## 功能
@@ -109,9 +109,9 @@ Bundle 会通过 `packages/dsh-bundle-balance/cordis.patch.yml` 插入：
 ## 自定义供应商字段
 
 - **余额查询地址**：必须是公网 HTTPS 地址。
+- **余额 JSON 路径**：例如 `$.data.balance`；支持 `??` 回退链与 `?.` 可选链，根节点可写作 `$` 或 `response`，例如 `$.remaining ?? $.quota?.remaining ?? $.balance`。`??` 只跳过 `null`/`undefined`，余额为 `0` 时会被正确显示。
 - **请求方式**：`GET` 或 `POST`。当前 `POST` 不发送请求体。
-- **余额 JSON 路径**：例如 `$.data.balance`。
-- **币种**：ISO 4217 三字母代码，例如 `CNY`、`USD`。
+- **币种**：ISO 4217 三字母代码（例如 `CNY`、`USD`），或用表达式从响应读取，例如 `$.unit ?? $.quota?.unit ?? "USD"`（字符串兜底需用双引号包裹）。
 - **请求头**：按名称和值逐行添加；`Authorization` 会自动注入。
 - **金额换算**：适用于接口返回额度单位而不是实际金额的情况。
 - **超时时间**：1–300 秒，默认 10 秒。
@@ -186,7 +186,7 @@ my-provider → DSH_BALANCE_SECRET_MY_PROVIDER
 
 - 手动选择的余额供应商保存在当前浏览器标签页会话中；关闭标签页后会恢复默认选择。
 - 通用 `POST` 查询暂不支持自定义请求体。
-- 通用 JSON 路径不支持数组索引、过滤器、计算表达式或自定义提取函数。
+- 通用 JSON 路径支持最多 8 层的简单属性访问与 `?.` 可选链，单个路径表达式最多 5 个 `??` 回退分支；不支持数组索引、过滤器、计算表达式或执行自定义 JavaScript。
 - 状态栏供应商选择为手动模式，不会自动跟随当前对话模型。
 - 输入框状态栏使用 `conversation.composer.dock` 插槽，配置页使用 `settings.plugin.item` 插槽，不再扫描或修改 DSH 私有 DOM。
 
@@ -206,4 +206,26 @@ npm test
 
 ## License
 
-当前仓库尚未声明许可证。若计划公开发布或允许他人复用，请先确定授权方式并补充明确的 `LICENSE` 文件。包内已补充基础关键词和描述；`repository`、`homepage`、`bugs`、`author` 等字段应在确认最终发布地址和作者信息后填写。
+MIT License
+
+Copyright (c) 2025 kongshan-zhuyu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+仓库地址：https://github.com/kongshan-zhuyu/dsh-balance-plugin
