@@ -73,10 +73,10 @@ Web 状态栏、设置页与发布 Bundle 收敛为一体。
 
 需要 **Node.js 22+** 与 DSH CLI。
 
-安装固定版本：
+安装最新版本：
 
 ```bash
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance-quota@0.3.1
+npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance-quota
 ```
 
 安装或升级后重启 Web Profile：

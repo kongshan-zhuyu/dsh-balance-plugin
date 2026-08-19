@@ -80,10 +80,10 @@ The plugin paints a compact strip **right below the message input** in every cha
 
 Requires **Node.js 22+** and the DSH CLI.
 
-Install the pinned release:
+Install the latest release:
 
 ```bash
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance-quota@0.3.1
+npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance-quota
 ```
 
 Restart the Web profile after installing or updating:
