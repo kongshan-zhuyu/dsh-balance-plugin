@@ -1,26 +1,24 @@
 import { spawnSync } from "node:child_process";
+import { access } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const packages = [
-  "dsh-bundle-balance",
-  "dsh-client-balance",
-  "dsh-host-balance",
-].map((name) => join(root, "packages", name));
+const profileIndex = process.argv.indexOf("--profile");
+const profile = profileIndex >= 0 ? process.argv[profileIndex + 1] : "web";
+if (!profile || profile.startsWith("-")) throw new Error("--profile requires a profile name");
+const packageRoot = join(root, "packages", "dsh-balance");
+await access(join(packageRoot, "package.json"));
 
-// shell=true lets Windows resolve dsh.cmd while keeping the same script usable
-// on macOS and Linux. Paths remain separate arguments, so spaces are supported.
-const result = spawnSync("dsh", ["plugin", "--profile", "web", "add", ...packages], {
-  cwd: root,
-  shell: process.platform === "win32",
-  stdio: "inherit",
-});
-
+const explicit = process.env.DSH_BIN;
+const command = explicit || (process.platform === "win32" ? "npx.cmd" : "npx");
+const args = explicit
+  ? ["plugin", "--profile", profile, "add", packageRoot]
+  : ["-y", "@deepseek-ai/dsh", "plugin", "--profile", profile, "add", packageRoot];
+const result = spawnSync(command, args, { cwd: root, stdio: "inherit", shell: false });
 if (result.error) {
-  console.error(`Failed to start dsh: ${result.error.message}`);
+  console.error(`Failed to start DSH CLI: ${result.error.message}`);
   process.exit(1);
 }
-
 if (result.status !== 0) process.exit(result.status ?? 1);
-console.log("DSH Balance installed. Restart dsh web to apply the plugin.");
+console.log(`DSH Balance installed into profile "${profile}". Restart dsh web to apply it.`);

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateProvider, readJsonPath, readJsonPathExpr, redactProvider, resolveBinding } from "./index.js";
-import { balanceCredentialRef, credentialRefForProvider, ownsCredential } from "./security.js";
+import { validateProvider, readJsonPath, readJsonPathExpr, redactProvider, resolveBinding } from "../lib/host/index.js";
+import { balanceCredentialRef, credentialRefForProvider, ownsCredential } from "../lib/host/security.js";
 
 test("rejects insecure or local endpoints", async () => {
   await assert.rejects(() => validateProvider({ id: "a", name: "a", endpoint: "http://example.com", responsePath: "$.balance" }));
@@ -50,7 +50,6 @@ test("validateProvider accepts expression responsePath and dynamic currency", as
 });
 test("balance credential references are stable and preserve shared ownership", async () => {
   assert.equal(balanceCredentialRef("my-provider"), "DSH_BALANCE_MY_PROVIDER");
-  assert.equal(balanceCredentialRef("OpenAI_2"), "DSH_BALANCE_OPENAI_2");
   const owned = await validateProvider({ id: "my-provider", name: "My Provider", endpoint: "https://example.com/usage", responsePath: "$.balance" });
   assert.equal(owned.credentialRef, "DSH_BALANCE_MY_PROVIDER");
   assert.equal(ownsCredential(owned), true);

@@ -1,0 +1,4 @@
+# DSH bundle layer: mount the unified balance host plugin.
+- insert:
+    - id: balance
+      name: 'dsh-balance'

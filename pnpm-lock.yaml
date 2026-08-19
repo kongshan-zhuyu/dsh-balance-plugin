@@ -7,3 +7,18 @@ settings:
 importers:
 
   .: {}
+
+  packages/dsh-balance: {}
+
+  packages/dsh-bundle-balance:
+    dependencies:
+      '@deepseek-ai/dsh-client-balance':
+        specifier: file:../dsh-client-balance
+        version: link:../dsh-client-balance
+      '@deepseek-ai/dsh-host-balance':
+        specifier: file:../dsh-host-balance
+        version: link:../dsh-host-balance
+
+  packages/dsh-client-balance: {}
+
+  packages/dsh-host-balance: {}

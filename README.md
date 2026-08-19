@@ -1,231 +1,83 @@
 # DSH Balance
 
-为 DeepSeek Harness（DSH）提供模型供应商余额与额度查询，并通过对话输入框的 `conversation.composer.dock` 插槽显示当前选中的余额状态。
+`dsh-balance` 是 DeepSeek Harness 的余额与额度插件。它把 Host 查询、Web 状态栏、设置页和 Bundle 收敛为一个可安装包，支持 DeepSeek、OpenCode Go 和自定义供应商。
 
-> 当前版本：`0.2.0`
-> 运行形态：DSH Web Profile 的 Host + Client 双端插件
+## 用户安装
+
+需要 Node.js 22 或更高版本。直接安装固定版本：
+
+```bash
+npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance@0.3.0
+```
+
+安装或更新后重启 Web Profile：
+
+```bash
+dsh web
+```
+
+查看插件：
+
+```bash
+dsh plugin --profile web list
+```
+
+删除时使用当前 CLI 帮助中显示的 profile 插件 remove 命令；不同 DSH 版本的删除参数可能不同，因此不在脚本中硬编码未经验证的变体。
+
+## 本地开发
+
+```bash
+pnpm install
+pnpm dev:install
+```
+
+开发者安装脚本只安装 `packages/dsh-balance` 这个本地包。它会在 Windows、macOS 和 Linux 内部选择正确的 DSH CLI，不要求用户手动区分系统，也不要求普通用户安装 pnpm。
 
 ## 功能
 
-- 在 **设置 → 插件 → 插件配置 → 余额查询** 中管理供应商。
-- 在输入框工具栏显示紧凑的余额或额度状态。
-- 点击供应商名称切换要查看的供应商。
-- 在状态栏中直接查看余额、刷新时间或全部额度窗口。
-- 支持超时时间和查询缓存间隔。
-- 支持金额换算：`接口原始值 ÷ 换算除数 = 最终显示金额`。
-- 可复用 DSH“模型”页中的供应商基础地址和凭据引用。
+- 在设置 → 插件 → 插件配置中管理余额供应商。
+- 在对话输入框状态栏显示余额、额度窗口、刷新时间和错误状态。
+- 内置 DeepSeek 余额和 OpenCode Go 滚动/每周/月度额度。
+- 自定义接口支持公网 HTTPS、GET、无请求体 POST、自定义请求头和金额换算。
+- JSON 路径支持 `?.` 可选链和最多 5 个 `??` 回退分支，例如 `$.remaining ?? $.quota?.remaining ?? $.balance`。
+- 优先复用 DSH 模型页的基础地址和 credential ref。
 
-## 内置方案
+## 凭据和平台支持
 
-### DeepSeek
+插件统一使用 DSH `credentials` 服务，不再区分 macOS、Windows 和 Linux 的安装或配置流程。自定义 API Key 不写入余额 JSON 配置，也不会通过浏览器配置接口返回；模型页共享凭据不会被插件覆盖或删除。
 
-- 接口：`https://api.deepseek.com/user/balance`
-- 展示货币余额。
-- 复用模型供应商凭据。
-
-### OpenCode Go
-
-- 接口：`https://opencode.ai/zen/go/v1/usage`
-- 展示滚动、每周和每月用量窗口。
-- 复用模型供应商凭据。
-
-### Neco 预填配置
-
-Neco 不是官方内置方案。插件只提供一组便于编辑的自定义配置预填：
-
-- 根据模型页 `baseURL` 自动选择 `/usage` 或 `/v1/usage`，避免重复 `/v1`。
-- 默认余额路径：`$.wallet.remaining`
-- 默认币种：`USD`
-- 默认请求头：
-  - `Content-Type: application/json`
-  - `User-Agent: cc-switch/1.0`
-- 默认开启金额换算，除数为 `500000`。
-
-当前通用 JSON 路径解析器只支持简单对象属性路径，不支持数组映射、条件表达式或执行自定义 JavaScript。因此 Neco 当前读取钱包余额，不会复刻 CC Switch 中优先读取 `subscription.subscriptions[]` 的完整提取逻辑。
+旧版本 macOS Keychain 中的凭据只作为一次性迁移来源。升级后首次使用时，插件会尝试迁移到 DSH 凭据服务；新版本不再调用操作系统专用 Keychain 命令。
 
 ## 项目结构
 
 ```text
 packages/
-├─ dsh-bundle-balance/   # Web Profile bundle 与 Cordis patch
-├─ dsh-host-balance/     # 配置、凭据、请求校验、缓存和余额查询
-└─ dsh-client-balance/   # 插件配置卡片、行内状态栏及供应商切换
+├─ dsh-balance/          # 对外安装包：Host、Client、Bundle、测试和发布文档
+├─ dsh-host-balance/     # 旧版内部 Host，保留作迁移期回归对照
+├─ dsh-client-balance/   # 旧版内部 Client，保留作迁移期回归对照
+└─ dsh-bundle-balance/   # 旧版内部 Bundle，保留作迁移期回归对照
 ```
 
-Cordis 中会注册两个条目：
+新的用户安装只使用 `dsh-balance`。旧三个包不应继续作为独立发布包。
 
-- `balance-host`：Host 端查询服务。
-- `balance-client`：Web 客户端界面。
-
-插件列表中出现两个 `balance` 条目是双端插件结构导致的，并非重复加载。
-
-## 安装
-
-前置条件：
-
-- 已安装 `dsh` CLI。
-- 已安装 `pnpm`；缺失时可执行 `npm install -g pnpm`。
-
-在项目根目录执行一条跨平台安装命令，无需区分 Windows、macOS 或 Linux：
+## 质量检查
 
 ```bash
-node ./scripts/install.mjs
+pnpm check
+pnpm test
+pnpm pack:check
+pnpm verify
 ```
 
-安装脚本会一次调用 `dsh plugin add` 并传入三个本地包路径：Bundle 负责应用 `cordis.patch.yml`，Client 负责界面，Host 负责余额查询。安装完成后重启 Web 服务：
+GitHub Actions 会在 Ubuntu、Windows、macOS 以及 Node.js 22/24 上运行相同检查。发布包使用 `files` 白名单，不会包含根目录设计稿、PNG 截图、`.git` 或本地验证产物。
 
-```bash
-dsh web
-```
-Bundle 会通过 `packages/dsh-bundle-balance/cordis.patch.yml` 插入：
+## 文档
 
-```yaml
-- insert:
-    - id: balance-host
-      name: '@deepseek-ai/dsh-host-balance'
-    - id: balance-client
-      name: '@deepseek-ai/dsh-client-balance'
-```
+- [统一包说明](./packages/dsh-balance/README.md)
+- [安全策略](./SECURITY.md)
+- [变更日志](./CHANGELOG.md)
+- [MIT License](./LICENSE)
 
-不需要修改 DSH 宿主源码。
+## 许可证
 
-## 使用
-
-1. 打开 **设置 → 插件 → 插件配置**。
-2. 展开 **余额查询**。
-3. 找到模型页已有的供应商：
-   - DeepSeek 或 OpenCode Go 可直接使用内置方案。
-   - Neco 会带入预填配置。
-   - 其他供应商可填写自定义余额接口。
-4. 保存后开启状态栏。
-5. 在输入框工具栏：
-   - 点击供应商名称切换供应商；
-   - 点击页面空白处关闭切换菜单；
-   - 直接查看余额、刷新时间或全部额度窗口；
-   - 点击刷新图标强制重新查询。
-
-当前供应商选择只保存在 Web 客户端运行状态中，页面刷新后会回到接口返回的第一个已配置供应商。
-
-## 自定义供应商字段
-
-- **余额查询地址**：必须是公网 HTTPS 地址。
-- **余额 JSON 路径**：例如 `$.data.balance`；支持 `??` 回退链与 `?.` 可选链，根节点可写作 `$` 或 `response`，例如 `$.remaining ?? $.quota?.remaining ?? $.balance`。`??` 只跳过 `null`/`undefined`，余额为 `0` 时会被正确显示。
-- **请求方式**：`GET` 或 `POST`。当前 `POST` 不发送请求体。
-- **币种**：ISO 4217 三字母代码（例如 `CNY`、`USD`），或用表达式从响应读取，例如 `$.unit ?? $.quota?.unit ?? "USD"`（字符串兜底需用双引号包裹）。
-- **请求头**：按名称和值逐行添加；`Authorization` 会自动注入。
-- **金额换算**：适用于接口返回额度单位而不是实际金额的情况。
-- **超时时间**：1–300 秒，默认 10 秒。
-- **自动查询间隔**：0–1440 分钟，默认 30 分钟；`0` 表示不复用缓存，每次刷新都重新查询。
-
-通用余额响应示例：
-
-```json
-{
-  "data": {
-    "balance": 62.89
-  }
-}
-```
-
-对应路径：
-
-```text
-$.data.balance
-```
-
-## 凭据
-
-插件优先复用模型页的 DSH 凭据引用。
-
-### macOS
-
-手动填写的 API Key 保存到 Keychain：
-
-- Service：`dsh.balance`
-- Account：`provider:<供应商 ID>`
-
-API Key 不会写入余额配置文件，也不会由配置接口返回。
-
-### Windows 和其他平台
-
-当前 `SecretStore` 不支持写入系统钥匙串。建议复用模型页凭据；也可以在启动 `dsh web` 前设置环境变量：
-
-```text
-DSH_BALANCE_SECRET_<PROVIDER_ID>
-```
-
-供应商 ID 会将非字母、数字和下划线替换为 `_`，再转为大写。例如：
-
-```text
-my-provider → DSH_BALANCE_SECRET_MY_PROVIDER
-```
-
-## 配置文件
-
-余额配置保存在：
-
-```text
-~/.dsh/balance/config.json
-```
-
-其中只保存供应商元数据、请求配置、缓存间隔和绑定信息，不保存 API Key。
-
-## 安全限制
-
-- 仅允许公网 HTTPS，端口必须为空或为 `443`。
-- 拒绝 URL 用户名和密码。
-- 拒绝回环、私网、链路本地地址，以及 `.local`、`.internal` 域名。
-- 保存和实际查询时都会解析 DNS；解析结果中只要存在私网地址即拒绝请求。
-- 实际 HTTPS 连接会固定到已经校验的公网 IP，并保留原域名的 Host 与 TLS SNI，防止 DNS 重绑定。
-- 禁止重定向。
-- 请求与响应体上限为 512 KiB。
-- 请求头名称和值会进行格式与 CR/LF 注入校验。
-- JSON 路径仅支持最多 8 层的简单属性访问，并拒绝原型链危险键。
-
-## 已知限制
-
-- 手动选择的余额供应商保存在当前浏览器标签页会话中；关闭标签页后会恢复默认选择。
-- 通用 `POST` 查询暂不支持自定义请求体。
-- 通用 JSON 路径支持最多 8 层的简单属性访问与 `?.` 可选链，单个路径表达式最多 5 个 `??` 回退分支；不支持数组索引、过滤器、计算表达式或执行自定义 JavaScript。
-- 状态栏供应商选择为手动模式，不会自动跟随当前对话模型。
-- 输入框状态栏使用 `conversation.composer.dock` 插槽，配置页使用 `settings.plugin.item` 插槽，不再扫描或修改 DSH 私有 DOM。
-
-## 开发
-
-仓库脚本：
-
-```bash
-npm run check
-npm test
-```
-
-- `npm run check`：执行 JavaScript 语法检查。
-- `npm test`：运行已有的 Host 安全测试。
-
-本项目未包含构建步骤，`lib/` 中的 JavaScript 即运行时代码。修改 Host 端后需要重启 `dsh web`；只修改 Client 端时通常刷新页面即可。
-
-## License
-
-MIT License
-
-Copyright (c) 2025 kongshan-zhuyu
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-仓库地址：https://github.com/kongshan-zhuyu/dsh-balance-plugin
+MIT License，详见 [LICENSE](./LICENSE)。
