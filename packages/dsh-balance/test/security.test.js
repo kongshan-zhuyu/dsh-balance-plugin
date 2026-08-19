@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateProvider, readJsonPath, readJsonPathExpr, redactProvider, resolveBinding } from "../lib/host/index.js";
+import { OFFICIAL_PROVIDER_IDS, isOfficialProvider, refreshDue, resolveConversationModel, validateProvider, readJsonPath, readJsonPathExpr, redactProvider, resolveBinding } from "../lib/host/index.js";
 import { balanceCredentialRef, credentialRefForProvider, ownsCredential } from "../lib/host/security.js";
 
 test("rejects insecure or local endpoints", async () => {
@@ -58,6 +58,29 @@ test("balance credential references are stable and preserve shared ownership", a
   assert.equal(shared.credentialRef, "OPENAI_API_KEY");
   assert.equal(ownsCredential(shared), false);
   assert.equal(credentialRefForProvider(shared), "OPENAI_API_KEY");
+});
+test("official presets are limited to verified official balance and quota APIs", async () => {
+  assert.deepEqual(OFFICIAL_PROVIDER_IDS, ["deepseek", "opencode-go"]);
+  const deepseek = await validateProvider({ id: "deepseek", name: "DeepSeek", preset: "deepseek", credentialRef: "DEEPSEEK_API_KEY" });
+  assert.equal(deepseek.endpoint, "https://api.deepseek.com/user/balance");
+  assert.equal(isOfficialProvider(deepseek), true);
+  const opencode = await validateProvider({ id: "opencode-go", name: "OpenCode Go", preset: "opencode-go", credentialRef: "OPENCODE_API_KEY" });
+  assert.equal(opencode.usageWindows.length, 3);
+  assert.equal(isOfficialProvider(opencode), true);
+  const custom = await validateProvider({ id: "relay", name: "Relay", endpoint: "https://example.com/usage", responsePath: "$.balance" });
+  assert.equal(isOfficialProvider(custom), false);
+});
+test("refreshDue follows each provider query interval", () => {
+  const provider = { queryIntervalMinutes: 30 };
+  assert.equal(refreshDue(provider, "2025-01-01T00:00:00.000Z", Date.parse("2025-01-01T00:29:59.999Z")), false);
+  assert.equal(refreshDue(provider, "2025-01-01T00:00:00.000Z", Date.parse("2025-01-01T00:30:00.000Z")), true);
+  assert.equal(refreshDue(provider, "not-a-date", Date.parse("2025-01-01T00:00:00.000Z")), true);
+  assert.equal(refreshDue({ queryIntervalMinutes: 0 }, "2025-01-01T00:00:00.000Z", Date.parse("2025-01-01T00:00:01.000Z")), true);
+});
+test("conversation model uses the latest completed request", () => {
+  assert.equal(resolveConversationModel({ nodes: [{ requestConfig: { provider: "deepseek", model: "deepseek-chat" } }, { requestConfig: { provider: "openai", model: "gpt-4o" } }] }), "openai/gpt-4o");
+  assert.equal(resolveConversationModel({ nodes: [{ kind: "user" }, { requestConfig: { provider: "deepseek" } }] }), undefined);
+  assert.equal(resolveConversationModel(undefined), undefined);
 });
 test("binding resolves an exact route first, then the provider prefix", () => {
   const config = { bindings: { "deepseek/deepseek-chat": "relay-a", "openai": "relay-b" } };

@@ -1,16 +1,46 @@
 # dsh-balance
 
-为 DeepSeek Harness 提供供应商余额和额度状态栏。单个包同时提供 DSH Host、Web Client 和 Bundle，安装时不需要区分 macOS、Windows 或 Linux。
+为 DeepSeek Harness 提供安全的余额与额度状态栏。插件在对话输入框下方显示当前模型对应的余额或用量，并提供供应商管理、模型绑定、缓存和手动刷新。
+
+## 已验证的官方方案
+
+| 供应商 | 显示内容 | 说明 |
+| --- | --- | --- |
+| DeepSeek | 可用余额 | 使用 DeepSeek 官方 `/user/balance` 接口。 |
+| OpenCode Go | 滚动、每周、每月用量 | 使用 OpenCode Go 官方用量接口。 |
+
+其他模型供应商（如 Claude、Gemini、OpenAI、Kimi、智谱、通义千问）可通过其**公开且可验证的 HTTPS 余额/额度接口**作为自定义供应商接入。插件不会把聊天、`countTokens` 或单次请求 usage 接口误当成账户余额接口。
+
+## 效果预览
+
+状态栏：
+
+![余额状态栏](../../../design-balance-status.png)
+
+设置页：
+
+![余额设置页](../../../verify-balance-settings.png)
+
+> 截图位于仓库根目录，仅用于 GitHub README 预览；发布到 npm 的包不包含截图文件。
 
 ## 安装
 
-需要 Node.js 22 或更高版本，以及可用的 DSH CLI：
+需要 Node.js 22 或更高版本，以及可用的 DSH CLI。
+
+### 从 npm 安装
 
 ```bash
 npx -y @deepseek-ai/dsh plugin --profile web add dsh-balance@0.3.0
 ```
 
-安装或升级后重启 Web Profile：
+### 本地开发安装
+
+```bash
+pnpm install
+pnpm dev:install
+```
+
+安装或升级后需要重启 Web Profile：
 
 ```bash
 dsh web
@@ -22,26 +52,34 @@ dsh web
 dsh plugin --profile web list
 ```
 
-本地开发安装：
+## 配置与模型绑定
 
-```bash
-pnpm install
-pnpm dev:install
-```
+打开 **设置 → 插件 → 插件配置 → 余额查询**。
 
-本地安装脚本只用于仓库开发者；普通用户不需要 clone 仓库，也不需要手动安装 pnpm。
+1. 对 DeepSeek 或 OpenCode Go，点击对应模型供应商的 **使用官方方案**。
+2. 插件会优先复用模型页已有的 credential ref；不会覆盖或删除该共享凭据。
+3. 对其他供应商，选择 **接入余额查询**，填写公开 HTTPS 余额/额度接口及 JSON 路径。
+4. 供应商可绑定到精确模型路由（例如 `deepseek/deepseek-chat`）或供应商前缀（例如 `deepseek`）。
 
-## 配置
+状态栏订阅 DSH 当前会话及其 conversation snapshot，并以该会话**最近一次实际完成请求**使用的 `provider/model` 作为依据，自动显示匹配绑定的供应商。全新且尚未发送消息的会话不会猜测模型；发送第一条消息后会自动匹配。
 
-打开 **设置 → 插件 → 插件配置 → 余额查询**。DeepSeek 和 OpenCode Go 使用内置方案，其他供应商可创建自定义配置。保存后状态栏会出现在对话输入框的 composer dock 中。
+## 刷新与性能
 
-自定义供应商支持：
+- 每个供应商可单独设置查询间隔 `queryIntervalMinutes`，默认 30 分钟。
+- 页面处于后台时，插件不自动刷新。
+- 页面重新可见时，插件会检查当前供应商是否已超过设置的间隔；只有到期才查询。
+- Host 按供应商缓存结果，因此多个会话使用同一个模型/供应商时会复用同一份结果。
+- 状态栏的刷新按钮会强制绕过缓存，立即查询。
 
-- 公网 HTTPS 余额接口。
-- `GET` 或无请求体 `POST`。
-- 简单 JSON 属性路径、`?.` 可选链和最多 5 个 `??` 回退分支。
-- 固定 ISO 4217 币种，或从响应读取币种。
-- 请求头、超时、缓存间隔和金额换算。
+## 自定义供应商
+
+支持：
+
+- 公网 HTTPS 余额或额度接口；
+- `GET` 或无请求体 `POST`；
+- 简单 JSON 属性路径、`?.` 可选链和最多 5 个 `??` 回退分支；
+- 固定 ISO 4217 币种或从响应读取币种；
+- 自定义请求头、超时、缓存间隔与金额换算。
 
 示例：
 
@@ -50,29 +88,20 @@ pnpm dev:install
 币种：$.unit ?? "USD"
 ```
 
-## 凭据
+## 凭据与安全
 
-插件优先复用模型页已有的 DSH credential ref。自定义 API Key 会通过 DSH `credentials` 服务保存到 DSH 的统一凭据存储，插件不会把密钥写入余额配置文件，也不会从配置接口返回密钥。
+插件通过 DSH `credentials` 服务解析和存储凭据。自定义 API Key 不会写入余额 JSON 配置，也不会通过浏览器配置接口返回。
 
-显式传入的环境变量仍由 DSH 统一凭据服务按其优先级处理。模型页共享凭据不会被余额插件覆盖或删除；插件自己创建的凭据只会在删除对应供应商时清理。
+余额接口必须使用公网 HTTPS。插件拒绝私网/回环地址、内部域名、重定向、危险请求头和超大响应，并在请求时重新校验 DNS 以降低 DNS 重绑定风险。详见 [SECURITY.md](./SECURITY.md)。
 
-旧版本在 macOS Keychain 中保存的凭据会在首次使用时迁移到 DSH 凭据服务。新版本不再依赖操作系统专用的 Keychain 命令，因此安装和使用流程在 macOS、Windows 和 Linux 上一致。
-
-## 安全
-
-余额接口必须是公网 HTTPS。插件拒绝私网地址、回环地址、内部域名、重定向、危险请求头和过大的响应，并在请求时重新校验 DNS 以降低 DNS 重绑定风险。完整策略见 [SECURITY.md](./SECURITY.md)。
-
-## 开发
+## 开发与验证
 
 ```bash
-pnpm install
 pnpm check
 pnpm test
 pnpm pack:check
 pnpm verify
 ```
-
-发布包只包含 `files` 白名单中的运行时代码和文档，设计稿、截图、测试输出和仓库元数据不会进入 npm 包。
 
 ## 许可证
 

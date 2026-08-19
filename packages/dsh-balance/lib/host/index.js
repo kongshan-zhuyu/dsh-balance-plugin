@@ -15,6 +15,46 @@ const cache = new Map();
 let configMutation = Promise.resolve();
 
 const DEFAULT_CONFIG = { version: 1, statusBar: true, bindings: {}, providers: [] };
+
+// 仅收录具有可验证余额/额度接口的官方方案；其他供应商继续通过自定义 HTTPS 接口接入。
+export const OFFICIAL_PROVIDERS = Object.freeze({
+  deepseek: Object.freeze({
+    id: "deepseek",
+    label: "DeepSeek 官方余额",
+    endpoint: "https://api.deepseek.com/user/balance",
+    method: "GET",
+    responsePath: "$.balance_infos",
+    currency: "CNY",
+    auth: "bearer",
+    authHeader: "Authorization",
+    headers: {},
+    usageWindows: [],
+  }),
+  "opencode-go": Object.freeze({
+    id: "opencode-go",
+    label: "OpenCode Go 官方额度",
+    endpoint: "https://opencode.ai/zen/go/v1/usage",
+    method: "GET",
+    responsePath: "$.usage.rolling.percent",
+    currency: "USD",
+    auth: "bearer",
+    authHeader: "Authorization",
+    headers: {},
+    usageWindows: [
+      { type: "rolling", percentPath: "$.usage.rolling.percent", resetAtPath: "$.usage.rolling.resetsAt" },
+      { type: "weekly", percentPath: "$.usage.weekly.percent", resetAtPath: "$.usage.weekly.resetsAt" },
+      { type: "monthly", percentPath: "$.usage.monthly.percent", resetAtPath: "$.usage.monthly.resetsAt" },
+    ],
+  }),
+});
+export const OFFICIAL_PROVIDER_IDS = Object.freeze(Object.keys(OFFICIAL_PROVIDERS));
+export function isOfficialProvider(provider) { return Boolean(provider && OFFICIAL_PROVIDERS[provider.preset]); }
+export function refreshDue(provider, syncedAt, now = Date.now()) {
+  const intervalMinutes = Number(provider?.queryIntervalMinutes ?? DEFAULT_QUERY_INTERVAL_MINUTES);
+  if (!Number.isFinite(intervalMinutes) || intervalMinutes <= 0) return true;
+  const syncedMs = typeof syncedAt === "string" ? Date.parse(syncedAt) : Number(syncedAt);
+  return !Number.isFinite(syncedMs) || now - syncedMs >= intervalMinutes * 60_000;
+}
 const badHost = /(^localhost$|\.local$|\.internal$)/i;
 function privateIp(ip) {
   return ip === "::1" || ip.startsWith("fe80:") || ip.startsWith("fc") || ip.startsWith("fd") || /^(0\.|10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip);
@@ -127,8 +167,8 @@ export async function validateProvider(input) {
   const timeoutSeconds = Number.isFinite(Number(input.timeoutSeconds)) ? Math.max(1, Math.min(300, Math.trunc(Number(input.timeoutSeconds)))) : DEFAULT_REQUEST_TIMEOUT_SECONDS;
   const queryIntervalMinutes = Number.isFinite(Number(input.queryIntervalMinutes)) ? Math.max(0, Math.min(1440, Math.trunc(Number(input.queryIntervalMinutes)))) : DEFAULT_QUERY_INTERVAL_MINUTES;
   const credential = isCredentialRef(input.credentialRef) ? { credentialRef: input.credentialRef } : { credentialRef: balanceCredentialRef(input.id), credentialOwner: "balance" };
-  if (input.preset === "deepseek") return { id: input.id, name: input.name.trim(), endpoint: "https://api.deepseek.com/user/balance", method: "GET", responsePath: "$.balance_infos", currency: "CNY", auth: "bearer", authHeader: "Authorization", headers: {}, usageWindows: [], timeoutSeconds, queryIntervalMinutes, preset: "deepseek", ...credential };
-  if (input.preset === "opencode-go") return { id: input.id, name: input.name.trim(), endpoint: "https://opencode.ai/zen/go/v1/usage", method: "GET", responsePath: "$.usage.rolling.percent", currency: "USD", auth: "bearer", authHeader: "Authorization", headers: {}, usageWindows: [{ type: "rolling", percentPath: "$.usage.rolling.percent", resetAtPath: "$.usage.rolling.resetsAt" }, { type: "weekly", percentPath: "$.usage.weekly.percent", resetAtPath: "$.usage.weekly.resetsAt" }, { type: "monthly", percentPath: "$.usage.monthly.percent", resetAtPath: "$.usage.monthly.resetsAt" }], timeoutSeconds, queryIntervalMinutes, preset: "opencode-go", ...credential };
+  const preset = typeof input.preset === "string" ? OFFICIAL_PROVIDERS[input.preset] : undefined;
+  if (preset) return { id: input.id, name: input.name.trim(), ...preset, timeoutSeconds, queryIntervalMinutes, preset: input.preset, ...credential };
   if (!safePathExpr(input.responsePath)) throw new Error("responsePath must be a simple JSON path or ?? fallback chain such as $.remaining ?? $.balance");
   const endpoint = await publicEndpoint(input.endpoint);
   const usageWindows = Array.isArray(input.usageWindows) ? input.usageWindows.slice(0, 3).map((item) => {
@@ -229,6 +269,14 @@ async function query(provider, credentials, force = false) {
 export function resolveBinding(config, model) {
   if (typeof model !== "string" || model.length === 0) return undefined;
   return config.bindings[model] || config.bindings[model.split("/")[0]];
+}
+export function resolveConversationModel(snapshot) {
+  const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : [];
+  for (let index = nodes.length - 1; index >= 0; index -= 1) {
+    const request = nodes[index]?.requestConfig;
+    if (typeof request?.provider === "string" && request.provider && typeof request?.model === "string" && request.model) return `${request.provider}/${request.model}`;
+  }
+  return undefined;
 }
 async function summary(config, model, credentials, force = false, requestedProviderId) { const providerId = isId(requestedProviderId) ? requestedProviderId : resolveBinding(config, model); const providers = providerId ? config.providers.filter((p) => p.id === providerId) : config.providers; return Promise.all(providers.map(async p => { try { return await query(p, credentials, force); } catch (error) { return { id:p.id, name:p.name, status:"error", error: error instanceof Error ? error.message : "request failed" }; } })); }
 export function apply(ctx) {

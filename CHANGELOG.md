@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 - Unreleased
+
+- 将官方方案范围明确为 DeepSeek 余额与 OpenCode Go 额度；其他供应商通过自定义公开 HTTPS 余额接口接入。
+- 状态栏按当前会话最后一次实际完成请求的模型路由匹配已绑定供应商。
+- 后台页面暂停自动刷新，恢复可见时按供应商配置的查询间隔检查是否过期。
+
 ## 0.3.0 - Unreleased
 
 - 统一通过 DSH `credentials` 服务保存自定义供应商密钥，消除 macOS、Windows 和 Linux 的使用差异。
