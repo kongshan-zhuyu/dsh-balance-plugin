@@ -125,8 +125,7 @@ window.__ModuleLoader__.load({
       const sessionId = state.sessions?.list?.getSnapshot?.().current || null;
       if (sessionId === state.sessionId) return;
       state.sessionUnsubscribe?.(); state.sessionUnsubscribe = null; state.sessionId = sessionId; state.conversationModel = null;
-      // 切换会话后清除手动选择，状态栏自动跟随新会话的模型绑定。
-      state.selectedProviderId = null; sessionStorage.removeItem("dsh-balance:selected-provider");
+      // 手动选择在会话间保持：用户选过的供应商不随会话切换被自动绑定覆盖。
       const binding = sessionId ? state.sessions?.binding?.(sessionId) : null;
       const session = binding?.session;
       if (session) {
